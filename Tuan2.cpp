@@ -82,7 +82,7 @@ void Bai4() {
 void Bai5() {
 	Mat src = imread("C:\\Users\\Admin\\Downloads\\review.png");
 	Mat image;
-	resize(src, image, cv::Size(), 0.75, 0.75);
+	resize(src, image, Size(), 0.75, 0.75);
 	Mat grayImage;
 	// Chuyển ảnh màu sang ảnh xám
 	cvtColor(image, grayImage, COLOR_BGR2GRAY);
@@ -186,6 +186,216 @@ void Bai7() {
 	waitKey();
 }
 
+void Bai8() {
+	vector<Rect> boundRects;
+	Mat image = imread("C:\\Users\\Admin\\Downloads\\vanban2.jpg");				//Đọc ảnh
+	Mat image_resize;
+	resize(image, image_resize, Size(), 0.75, 0.75);							//Resize kích thước
+	Mat grayImg;
+	cvtColor(image_resize, grayImg, COLOR_BGR2GRAY);							//Chuyển sang màu xám
+	Mat sobImg;
+	Sobel(grayImg, sobImg, CV_8U, 1, 0, 3, 1, 0, BORDER_DEFAULT);
+	Mat binImg;
+	threshold(sobImg, binImg, 0, 255, THRESH_OTSU + THRESH_BINARY);
+	Mat matElement;
+	matElement = getStructuringElement(MORPH_RECT, Size(19, 3));
+	morphologyEx(binImg, binImg, MORPH_CLOSE , matElement); 
+	vector<vector<Point> > contours;
+	findContours(binImg, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+	vector<vector<Point> > contours_poly(contours.size());
+	for (int i = 0; i < contours.size(); i++)
+	{
+		if (contours[i].size() > 100)
+		{
+			approxPolyDP(Mat(contours[i]), contours_poly[i], 3, true);
+			Rect appRect(boundingRect(Mat(contours_poly[i])));
+			if (appRect.width > appRect.height)
+			{
+				appRect.x -= image_resize.cols / 100;
+				appRect.width += image_resize.cols / 100;
+				boundRects.push_back(appRect);
+			}
+		}
+	}
+	for (const Rect& rect : boundRects)
+	{
+		rectangle(image_resize, rect, Scalar(0, 0, 255), 2); // Vẽ đỏ với độ dày 2
+	}
+	imshow("Goc", image);
+	imshow("Sobel", sobImg);
+	imshow("Binary", binImg);
+	imshow("Find Text", image_resize);
+	waitKey();
+}
+
+void Bai9() {
+	Mat src = imread("E:\\Template\\dongxu1.jfif");
+
+	Mat pre = src.clone();
+	int b = pre.at<cv::Vec3b>(5, 5)[0];
+	int g = pre.at<cv::Vec3b>(5, 5)[1];
+	int r = pre.at<cv::Vec3b>(5, 5)[2];
+
+	Mat mask;
+	inRange(pre, Scalar(b - 20, g - 25, r - 25), Scalar(b + 8, g + 8, r + 8), mask);
+	pre.setTo(Scalar(0, 0, 0), mask);
+	pre.setTo(Scalar(255, 255, 255), ~mask);
+	imshow("blackbg", pre);
+	blur(pre, pre, Size(3, 3), Point(-1, -1), 4);
+	imshow("blur", pre);
+	Mat oldbw;
+	Mat bw;
+	cvtColor(pre, oldbw, COLOR_BGR2GRAY);
+	threshold(oldbw, bw, 90, 255, THRESH_BINARY);
+	imshow("binImg", bw);
+	Mat dist;
+	distanceTransform(bw, dist, DIST_L2, 3);
+	imshow("dist1", dist);
+	normalize(dist, dist, 0, 1.1, NORM_MINMAX);
+	imshow("dist2", dist);
+	threshold(dist, dist, .5, 1., THRESH_BINARY);
+	imshow("dist3", dist);
+	Mat dist_8u;
+	dist.convertTo(dist_8u, CV_8U);
+	vector<vector<Point> > contours;
+	findContours(dist_8u, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+	int ncomp = contours.size();
+
+	cout <<" Number of coins: " << ncomp << endl;
+
+	// Create the marker image for the watershed algorithm
+	Mat markers = Mat::zeros(dist.size(), CV_32SC1);
+
+	// Draw the foreground markers
+	for (int i = 0; i < ncomp; i++)
+		drawContours(markers, contours, i, Scalar::all(i + 1), -1);
+
+	// Draw the background marker
+	circle(markers, Point(5, 5), 3, CV_RGB(255, 255, 255), -1);
+
+	// Perform the watershed algorithm
+	watershed(src, markers);
+
+	// Generate random colors
+	vector<Vec3b> colors;
+	for (int i = 0; i < ncomp; i++)
+	{
+		int b = theRNG().uniform(0, 255);
+		int g = theRNG().uniform(0, 255);
+		int r = theRNG().uniform(0, 255);
+
+		colors.push_back(Vec3b((uchar)b, (uchar)g, (uchar)r));
+	}
+
+	// Create the result image
+	Mat dst = Mat::zeros(markers.size(), CV_8UC3);
+
+	// Fill labeled objects with random colors
+	for (int i = 0; i < markers.rows; i++)
+	{
+		for (int j = 0; j < markers.cols; j++)
+		{
+			int index = markers.at<int>(i, j);
+			if (index > 0 && index <= ncomp)
+				dst.at<Vec3b>(i, j) = colors[index - 1];
+			else
+				dst.at<Vec3b>(i, j) = Vec3b(0, 0, 0);
+		}
+	}
+	imshow("src", src);
+	imshow("dst", dst);
+	waitKey(0);
+
+}
+
+void Test() {
+	cv::Mat image = cv::imread("E:\\Template\\dongxu2.jfif");
+
+	int b = image.at<cv::Vec3b>(5, 5)[0];
+	int g = image.at<cv::Vec3b>(5, 5)[1];
+	int r = image.at<cv::Vec3b>(5, 5)[2];
+
+	Mat mask;
+	inRange(image, Scalar(b - 20, g - 25, r - 25), Scalar(b + 8, g + 8, r + 8), mask);
+	image.setTo(Scalar(0, 0, 0), mask);
+	image.setTo(Scalar(255, 255, 255), ~mask);
+	blur(image, image, Size(3, 3), Point(-1, -1), 4);
+	imshow("Original Image", image);
+	cv::waitKey(0);
+}
+
+std::vector<std::vector<cv::Point>> ClampContourBySize(std::vector<std::vector<cv::Point>> contours, int minValue, int maxValue)
+{
+	std::vector<std::vector<cv::Point>> result;
+	for (int i = 0; i < contours.size(); ++i)
+	{
+		cv::Rect r = cv::boundingRect(contours[i]);
+		float distance = abs(r.width - r.height) / (r.width + r.height);
+		if (distance < 0.5)
+		{
+			if (minValue <= r.width && r.width <= maxValue && minValue <= r.height && r.height <= maxValue)
+			{
+				result.push_back(contours[i]);
+			}
+		}
+
+	}
+	return result;
+}
+
+void Bai10() {
+	cv::Mat image = cv::imread("E:\\Template\\tomgiong3.jfif");
+	Mat matGray;
+	cvtColor(image, matGray, COLOR_BGR2GRAY);
+	cv::imshow("mat gray", matGray);
+
+	//blur
+	cv::Mat matBlur;
+	cv::blur(matGray, matBlur, cv::Size(29, 29));
+
+	//threshold
+	cv::Mat matBinary;
+	cv::adaptiveThreshold(matBlur, matBinary, 255, ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 21, 0);
+	cv::imshow("binary", matBinary);
+
+
+	//Finding sure foreground area
+	cv::Mat dist_transform;
+	cv::distanceTransform(matBinary, dist_transform, DIST_L2, 3);
+
+
+	cv::Mat matNorm;
+	cv::normalize(dist_transform, matNorm, 0, 1, cv::NORM_MINMAX);
+	cv::imshow("matNorm", matNorm);
+
+
+	double min, max;
+	cv::minMaxLoc(dist_transform, &min, &max);
+	cv::Mat sure_fg;
+	cv::threshold(dist_transform, sure_fg, 0.4 * max, 255, THRESH_BINARY);
+	cv::imshow("sure_fg", sure_fg);
+
+
+	//convert to 1 channel
+	sure_fg.convertTo(sure_fg, CV_8U);
+	std::vector<std::vector<cv::Point>> contours;
+	cv::findContours(sure_fg, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
+
+	contours = ClampContourBySize(contours, 5, 20);
+
+	for (int i = 0; i < contours.size(); i++)
+	{
+		cv::RotatedRect rrect = cv::minAreaRect(contours[i]);
+		cv::rectangle(image, rrect.boundingRect(), Scalar(0, 255, 0), 1);
+	}
+
+	cv::imshow("Output", image);
+
+	cout << contours.size();
+	waitKey();
+
+}
+
 void Action() {		
 	cout << "\t\t\tKHO CODE THAI HOC XIN KINH CHAO QUY KHACH!!!\n\n";
 	cout << "\t\t\tVUI LONG XEM VA CHON MUC DE THUC THI CHUONG TRINH:\n" << endl;
@@ -196,6 +406,10 @@ void Action() {
 	cout << "\t5.PHAT HIEN DUONG THANG, DUONG TRON \n";
 	cout << "\t6.CHINH SANG VAN BAN TU DONG\n";
 	cout << "\t7.TIM VA VE CONTOUR TRONG ANH \n";
+	cout << "\t8.TIM VI TRI TEXT TRONG ANH \n";
+	cout << "\t9.DEM DONG XU NAM CHONG \n";
+	cout << "\t10. DEM TOM \n";
+	cout << "\t0.TEST PROGRAM \n";
 	cout << "SO BAN CHON LA: "; int i; cin >> i;
 	switch (i) {
 	case 1:
@@ -229,6 +443,29 @@ void Action() {
 	case 7:
 	{
 		Bai7();
+		break;
+	}
+
+	case 8:
+	{
+		Bai8();
+		break;
+	}
+
+	case 9:
+	{
+		Bai9();
+		break;
+	}
+
+	case 10:
+	{
+		Bai10();
+		break;
+	}
+
+	case 0: {
+		Test();
 		break;
 	}
 
